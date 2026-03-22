@@ -3,7 +3,7 @@ from pathlib import Path
 
 base_dir = Path(__file__).parent
 html_path = base_dir / "paste.txt"
-student_file = base_dir / "תרגול_DATEDIF_משופר_למשתתפים.xlsx"
+student_file = base_dir / "תרגול_DATEDIF.xlsx"
 logo_png = base_dir / "logo.png"
 logo_gif = base_dir / "logo.gif"
 logo_file = logo_png if logo_png.exists() else logo_gif
