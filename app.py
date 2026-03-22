@@ -7,8 +7,9 @@ logo_gif = base_dir / "logo.gif"
 logo_file = logo_png if logo_png.exists() else logo_gif
 
 sheet_url = "https://docs.google.com/spreadsheets/d/1iGQU60BabjpVZbn7-P7expQ_c4C58vJSvBrriszExOw/edit?usp=sharing"
+embed_url = "https://docs.google.com/spreadsheets/d/1iGQU60BabjpVZbn7-P7expQ_c4C58vJSvBrriszExOw/preview"
 
-st.set_page_config(page_title="תרגול DATEDIF", layout="centered")
+st.set_page_config(page_title="תרגול DATEDIF", layout="wide")
 
 st.markdown("""
 <style>
@@ -18,28 +19,47 @@ html, body, [class*="css"] {
 }
 
 .block-container {
-    max-width: 800px;
-    padding-top: 3rem;
+    max-width: 1000px;
+    padding-top: 2.5rem;
+    padding-bottom: 2rem;
 }
 
 .main-title {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 700;
     color: #1f2937;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .sub-title {
+    font-size: 1.05rem;
     color: #6b7280;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.link-wrap {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
+iframe {
+    border-radius: 12px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-if logo_file.exists():
-    st.image(str(logo_file), width=180)
+top_col1, top_col2 = st.columns([3, 1])
 
-st.markdown('<div class="main-title">תרגול DATEDIF</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">גישה ישירה לגיליון התרגול</div>', unsafe_allow_html=True)
+with top_col1:
+    st.markdown('<div class="main-title">תרגול DATEDIF</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">גישה ישירה לגיליון התרגול ב-Google Sheets</div>', unsafe_allow_html=True)
 
-st.link_button("פתיחת הגיליון", sheet_url, use_container_width=True)
+with top_col2:
+    if logo_file.exists():
+        st.image(str(logo_file), width=180)
+
+st.markdown('<div class="link-wrap">', unsafe_allow_html=True)
+st.link_button("פתיחת הגיליון ב-Google Sheets", sheet_url, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.components.v1.iframe(embed_url, height=850, scrolling=True)
