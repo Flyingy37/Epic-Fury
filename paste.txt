@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שליטה בזמן – אקסל עם נתוני אזעקות</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { heebo: ['Heebo','sans-serif'], mono: ['IBM Plex Mono','monospace'] } } }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    .tab-btn { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .tab-btn.active { transform: translateY(-2px); }
+    .section-card { animation: cardIn 0.45s ease-out both; }
+    @keyframes cardIn { from { opacity:0; transform:translateY(18px);} to { opacity:1; transform:translateY(0);} }
+    .quiz-option { transition: all 0.22s; cursor: pointer; }
+    .quiz-option:hover { transform: translateX(-4px); }
+    .quiz-option.correct { border-color: #22c55e !important; background: #052e16 !important; }
+    .quiz-option.wrong { border-color: #ef4444 !important; background: #1f0707 !important; }
+    .progress-fill { transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+    .number-reveal { font-family:'IBM Plex Mono',monospace; font-size:2.2rem; font-weight:700; transition:all 0.5s; }
+    .formula-box { background:linear-gradient(135deg,#1c100322,#2a180522); border:1px solid #f9731644; border-radius:10px; }
+    .practice-feedback { animation: feedIn 0.3s ease-out; }
+    @keyframes feedIn { from { opacity:0; transform:translateY(-6px);} to { opacity:1; transform:translateY(0);} }
+    .scroll-wrapper { overflow-y:auto; overflow-x:hidden; }
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#7c2d12; border-radius:3px; }
+    .ltr { direction:ltr; unicode-bidi:bidi-override; display:inline-block; }
+    .excel-grid { display:grid; gap:1px; background:#444; border:2px solid #666; border-radius:4px; overflow:hidden; }
+    .excel-cell { padding:5px 10px; font-family:'IBM Plex Mono',monospace; font-size:12px; }
+    .excel-header { background:linear-gradient(180deg,#e8e8e8,#d0d0d0); font-weight:700; text-align:center; color:#333; }
+    .excel-data { background:#fff; color:#222; }
+    .excel-formula { background:#fffde7; color:#1565c0; font-weight:600; }
+    .badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:99px; }
+    .confetti-piece { position:fixed; width:10px; height:10px; border-radius:2px; pointer-events:none; z-index:9999; animation:confettiFall 1.8s ease-in forwards; }
+    @keyframes confettiFall { 0%{opacity:1;transform:translateY(-20px) rotate(0deg);} 100%{opacity:0;transform:translateY(100vh) rotate(720deg);} }
+  </style>
+</head>
+<body class="h-full font-heebo" style="background:#09080f;">
+<div class="h-full w-full flex flex-col" style="background:linear-gradient(170deg,#0d0a08 0%,#150e07 45%,#0d0a08 100%);">
+
+  <!-- Header -->
+  <header class="flex-shrink-0 px-4 sm:px-8 pt-6 pb-4">
+    <div class="max-w-5xl mx-auto">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div class="flex items-center gap-3">
+          <img src="https://drive.google.com/uc?export=view&id=1LSchveWhxJrOGD9-kl3VbCKIBW8bNBr-"
+               alt="מגמת מידע ונתונים" style="height:52px;width:auto;object-fit:contain;">
+          <img src="https://www.gov.il/BlobFolder/news/mot-update-2026-03-01/he/roaring-lion-he.jpeg"
+               alt="שאגת האריה" style="height:52px;width:auto;object-fit:contain;border-radius:6px;">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold text-white leading-tight">שליטה בזמן: אקסל עם נתוני אזעקות 🚨</h1>
+            <div class="flex items-center gap-4 mt-1 text-xs" style="color:#fdba74;">
+              <span class="flex items-center gap-1"><i data-lucide="users" style="width:13px;height:13px;"></i> רעננה, הרצליה, אבן יהודה, קדימה-צורן, פורת</span>
+              <span class="flex items-center gap-1"><i data-lucide="database" style="width:13px;height:13px;"></i> 100 אזעקות - אזור השרון</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium" style="color:#fed7aa;" id="progress-label">0%</span>
+          <div class="w-28 h-2 rounded-full" style="background:#1c0f07;">
+            <div id="progress-bar" class="progress-fill h-full rounded-full" style="width:0%;background:linear-gradient(90deg,#f97316,#fb923c);"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="flex gap-1 overflow-x-auto pb-1" id="tab-nav"></nav>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 scroll-wrapper px-4 sm:px-8 pb-8">
+    <div class="max-w-5xl mx-auto" id="content-area"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="flex-shrink-0 px-4 sm:px-8 py-3 text-center" style="border-top:1px solid #2a1810;">
+    <span class="text-xs" style="color:#6b7280;">נבנה על ידי </span>
+    <span class="text-xs font-medium" style="color:#fdba74;">Yael Livnat-Zaidman</span>
+    <span class="text-xs mx-2" style="color:#431407;">|</span>
+    <span class="text-xs" style="color:#6b7280;">מגמת מידע ונתונים</span>
+  </footer>
+</div>
+
+<script>
+// ─── SECTIONS ───────────────────────────────────────────────
+const sections = [
+  { id:'intro',     icon:'lightbulb',        title:'מבוא: מה קורה עם תאריכים באקסל?',  shortTitle:'מבוא' },
+  { id:'data',      icon:'database',          title:'הנתונים: 100 אזעקות - כפר סבא מאז תחילת המבצע', shortTitle:'הנתונים' },
+  { id:'charts',    icon:'bar-chart-2',       title:'גרפים: ניתוח ויזואלי',              shortTitle:'גרפים' },
+  { id:'serial',    icon:'hash',              title:'תאריך = מספר סידורי',               shortTitle:'מספר סידורי' },
+  { id:'functions', icon:'function-square',   title:'פונקציות תאריך ושעה',               shortTitle:'פונקציות' }
+];
+let currentSection = 0;
+let quizAnswers = {};
+let practiceResults = {};
+
+// ─── TABS ────────────────────────────────────────────────────
+function renderTabs() {
+  const nav = document.getElementById('tab-nav');
+  nav.innerHTML = '';
+  sections.forEach((s,i) => {
+    const btn = document.createElement('button');
+    btn.className = `tab-btn flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap ${i===currentSection?'active':''}`;
+    btn.style.background = i===currentSection ? '#f97316' : '#1c0f07';
+    btn.style.color      = i===currentSection ? '#fff'    : '#fdba74';
+    btn.style.border     = i===currentSection ? 'none'    : '1px solid #431407';
+    btn.innerHTML = `<i data-lucide="${s.icon}" style="width:14px;height:14px;"></i> ${s.shortTitle}`;
+    btn.onclick = () => goTo(i);
+    nav.appendChild(btn);
+  });
+  lucide.createIcons();
+}
+function goTo(idx) {
+  currentSection = idx;
+  renderTabs(); renderContent(); updateProgress();
+}
+function updateProgress() {
+  const pct = Math.round(((currentSection+1)/sections.length)*100);
+  document.getElementById('progress-bar').style.width = pct+'%';
+  document.getElementById('progress-label').textContent = pct+'%';
+}
+
+// ─── CONTENT WRAPPER ─────────────────────────────────────────
+function renderContent() {
+  const area = document.getElementById('content-area');
+  const s = sections[currentSection];
+  let html = '';
+  switch(s.id) {
+    case 'intro':     html = renderIntro();     break;
+    case 'data':      html = renderData();      break;
+    case 'charts':    html = renderCharts();    break;
+    case 'serial':    html = renderSerial();    break;
+    case 'functions': html = renderFunctions(); break;
+  }
+  area.innerHTML = `
+    <div class="section-card rounded-2xl border p-5 sm:p-8 mb-4" style="background:#100c08;border-color:#2a1810;animation-delay:0.05s;">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#f97316,#dc2626);">
+          <i data-lucide="${s.icon}" style="width:20px;height:20px;color:#fff;"></i>
+        </div>
+        <h2 class="text-lg sm:text-xl font-bold text-white">${s.title}</h2>
+      </div>
+      ${html}
+    </div>
+    ${renderNav()}
+  `;
+  lucide.createIcons();
+  if (s.id === 'charts') { chartsInit = false; setTimeout(initCharts, 80); }
+}
+function renderNav() {
+  const prev = currentSection > 0
+    ? `<button onclick="goTo(${currentSection-1})" class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm text-white" style="background:#1c0f07;border:1px solid #431407;"><i data-lucide="arrow-right" style="width:16px;height:16px;"></i> הקודם</button>`
+    : '<div></div>';
+  const next = currentSection < sections.length-1
+    ? `<button onclick="goTo(${currentSection+1})" class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm text-white" style="background:#f97316;"><span>הבא</span> <i data-lucide="arrow-left" style="width:16px;height:16px;"></i></button>`
+    : '<div></div>';
+  return `<div class="flex justify-between items-center mt-4">${next}${prev}</div>`;
+}
+
+// ─── INTRO ───────────────────────────────────────────────────
+function renderIntro() {
+  return `
+  <div class="space-y-5" style="color:#d1d5db;">
+    <p class="text-base leading-relaxed">לפניכם נתוני אזעקות <strong class="text-white">אמיתיים מכפר סבא</strong>, מאז תחילת המבצע (28/02/2026). בכל שורה: תאריך, שעת התחלה, שעת סיום וישוב. נשתמש ב<strong style="color:#fb923c;">פונקציות תאריך ושעה באקסל</strong> כדי לנתח אותם.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      ${[['100','אזעקות מאז 28/02','alarm-bell'],['22','ימי מבצע','calendar'],['14:00','שעת שיא','timer']].map(([n,l,ic])=>`
+      <div class="rounded-xl p-4 text-center" style="background:#0d0906;border:1px solid #2a1810;">
+        <div class="font-mono text-2xl font-bold mb-1" style="color:#fb923c;">${n}</div>
+        <div class="text-xs" style="color:#9ca3af;">${l}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+        <i data-lucide="key" style="width:16px;height:16px;color:#fb923c;"></i>
+        מה נלמד?
+      </h3>
+      <div class="space-y-2 text-sm" style="color:#d1d5db;">
+        ${[
+          ['hash','תאריכים הם מספרים סידוריים - מה זה אומר?'],
+          ['clock','שעות הן שברים עשרוניים - איך מחשבים?'],
+          ['function-square','פונקציות: HOUR, TEXT, WEEKDAY'],
+        ].map(([ic,txt])=>`
+        <div class="flex items-center gap-2">
+          <i data-lucide="${ic}" style="width:15px;height:15px;color:#f97316;flex-shrink:0;"></i>
+          <span>${txt}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="rounded-xl p-4 flex items-start gap-3" style="background:#f9731611;border:1px solid #f9731633;">
+      <i data-lucide="zap" style="width:18px;height:18px;color:#fb923c;flex-shrink:0;margin-top:2px;"></i>
+      <p class="text-sm" style="color:#fed7aa;"><strong class="text-white">שאלת פתיחה:</strong> למה Excel לא תמיד "מבין" תאריכים שמיובאים ממערכות אחרות? לחצו "הבא" כדי לגלות.</p>
+    </div>
+  </div>`;
+}
+
+// ─── DATA ────────────────────────────────────────────────────
+function renderData() {
+  const rows = [
+    ['1','שרון','28/02/2026','16:04','16:05','60','כפר סבא','צהריים'],
+    ['2','שרון','01/03/2026','06:31','06:32','60','כפר סבא','בוקר'],
+    ['3','שרון','05/03/2026','02:28','02:29','60','כפר סבא','לילה'],
+    ['4','שרון','11/03/2026','13:51','13:52','60','כפר סבא','צהריים'],
+    ['5','שרון','22/03/2026','09:25','09:26','60','כפר סבא','בוקר'],
+  ];
+  return `
+  <div class="space-y-5" style="color:#d1d5db;">
+    <div class="rounded-xl p-3 flex items-center gap-2 mb-1" style="background:#f9731611;border:1px solid #f9731633;">
+      <i data-lucide="zap" style="width:15px;height:15px;color:#fb923c;flex-shrink:0;"></i>
+      <p class="text-xs" style="color:#fed7aa;">נתוני אמת - כפר סבא (אזור השרון) | 28/02/2026 עד 22/03/2026 | 100 התרעות</p>
+    </div>
+    <p class="text-base leading-relaxed">כל ההתרעות שהופעלו בכפר סבא מאז תחילת המבצע (28/02). בואו נכיר את מבנה הנתונים.</p>
+
+    <!-- Column descriptions -->
+    <div class="rounded-xl p-4 overflow-x-auto" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3">עמודות בקובץ</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+        ${[
+          ['AlertID','מספר מזהה','gray'],
+          ['אזור','שרון','orange'],
+          ['תאריך','תאריך בלבד','blue'],
+          ['שעת_התחלה','שעת תחילת אזעקה','blue'],
+          ['שעת_סיום','שעת סיום אזעקה','blue'],
+          ['משך_בשניות','משך האזעקה','green'],
+          ['ישוב','כפר סבא','orange'],
+          ['תאריך_ושעה_התחלה','תאריך + שעה משולבים','purple'],
+          ['חלק ביום','בוקר/צהריים/ערב/לילה','yellow'],
+        ].map(([col,desc,clr])=>{
+          const colors = {gray:'#6b7280',orange:'#f97316',blue:'#60a5fa',green:'#4ade80',purple:'#c084fc',yellow:'#facc15'};
+          const isLatin = /^[A-Za-z]/.test(col);
+          return `<div class="rounded-lg p-2" style="background:#150e07;border:1px solid #2a1810;">
+            <div class="font-mono font-bold text-xs mb-0.5${isLatin?' ltr':''}" style="color:${colors[clr]};">${col}</div>
+            <div style="color:#9ca3af;">${desc}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Sample data -->
+    <div>
+      <h3 class="font-bold text-white text-sm mb-2">5 דוגמאות מהמבצע</h3>
+      <div class="overflow-x-auto">
+        <div class="excel-grid" style="grid-template-columns:35px 70px 90px 65px 65px 60px 80px 60px;width:fit-content;">
+          <div class="excel-cell excel-header">#</div>
+          <div class="excel-cell excel-header">אזור</div>
+          <div class="excel-cell excel-header">תאריך</div>
+          <div class="excel-cell excel-header">התחלה</div>
+          <div class="excel-cell excel-header">סיום</div>
+          <div class="excel-cell excel-header">משך(שנ)</div>
+          <div class="excel-cell excel-header">ישוב</div>
+          <div class="excel-cell excel-header">חלק ביום</div>
+          ${rows.map(r=>r.map((v,i)=>`<div class="excel-cell excel-data" style="${i>=3&&i<=4?'direction:ltr;unicode-bidi:bidi-override;':''}">${v}</div>`).join('')).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      ${[
+        ['100','התרעות סה"כ','28/02 עד 22/03/2026'],
+        ['22','ימי מבצע','כמה ימים? - DATEDIF!'],
+        ['28/02','יום שיא','19 התרעות ביום אחד'],
+        ['14:00','שעת שיא','9 התרעות בשעה זו'],
+      ].map(([title,label,sub])=>`
+      <div class="rounded-xl p-3 text-center" style="background:#0d0906;border:1px solid #2a1810;">
+        <div class="font-bold text-sm text-white mb-0.5">${title}</div>
+        <div class="text-xs font-medium" style="color:#fb923c;">${label}</div>
+        <div class="text-xs mt-0.5" style="color:#6b7280;">${sub}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ─── CHARTS ──────────────────────────────────────────────────
+const alertsByDay = {
+  labels: ['28/02','01/03','02/03','03/03','04/03','05/03','06/03','07/03','08/03','09/03','10/03','11/03','12/03','13/03','14/03','15/03','16/03','17/03','18/03','19/03','20/03','22/03'],
+  data:   [19,13,3,6,4,6,3,4,2,1,4,6,3,1,2,5,4,2,4,3,3,2]
+};
+const alertsByShift = { labels:['צהריים (12-18)','ערב (18-24)','בוקר (06-12)','לילה (00-06)'], data:[35,27,21,17] };
+const alertsByHour  = {
+  labels: ['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'],
+  data:   [3,4,3,5,2,0,7,2,2,1,5,4,4,7,9,4,6,5,5,6,2,6,4,4]
+};
+let chartsInit = false;
+function renderCharts() {
+  return `
+  <div class="space-y-6" style="color:#d1d5db;">
+    <div class="rounded-xl p-3 flex items-center gap-2" style="background:#f9731611;border:1px solid #f9731633;">
+      <i data-lucide="bar-chart-2" style="width:15px;height:15px;color:#fb923c;flex-shrink:0;"></i>
+      <p class="text-xs" style="color:#fed7aa;">100 התרעות | כפר סבא | 28/02/2026 - 22/03/2026</p>
+    </div>
+
+    <!-- KPI row -->
+    <div class="grid grid-cols-4 gap-2">
+      ${[['19','שיא יומי','28/02'],['9','שיא שעתי','14:00'],['35%','חלק ביום שיא','צהריים'],['22','ימי מבצע','28/02-22/03']].map(([v,l,s])=>`
+      <div class="rounded-xl p-3 text-center" style="background:#0d0906;border:1px solid #2a1810;">
+        <div class="font-mono text-xl font-bold mb-0.5" style="color:#fb923c;">${v}</div>
+        <div class="text-xs font-medium text-white">${l}</div>
+        <div class="text-xs" style="color:#6b7280;">${s}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- Bar chart: per day -->
+    <div class="rounded-xl p-4" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+        <i data-lucide="calendar-days" style="width:15px;height:15px;color:#fb923c;"></i>
+        התרעות לפי יום - מאז תחילת המבצע
+      </h3>
+      <div style="position:relative;height:220px;">
+        <canvas id="chartDay"></canvas>
+      </div>
+    </div>
+
+    <!-- Row: shift donut + hour bar -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-xl p-4" style="background:#0d0906;border:1px solid #2a1810;">
+        <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+          <i data-lucide="pie-chart" style="width:15px;height:15px;color:#fb923c;"></i>
+          לפי חלק ביום
+        </h3>
+        <div style="position:relative;height:200px;">
+          <canvas id="chartShift"></canvas>
+        </div>
+      </div>
+      <div class="rounded-xl p-4" style="background:#0d0906;border:1px solid #2a1810;">
+        <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+          <i data-lucide="clock" style="width:15px;height:15px;color:#fb923c;"></i>
+          לפי שעה ביממה
+        </h3>
+        <div style="position:relative;height:200px;">
+          <canvas id="chartHour"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insight box -->
+    <div class="rounded-xl p-4" style="background:#1c0f07;border:1px solid #f9731633;">
+      <h3 class="font-bold text-white text-sm mb-2">💡 מה אפשר לראות בגרפים?</h3>
+      <div class="space-y-1 text-sm" style="color:#fed7aa;">
+        <p>• יום ה-28/02 (תחילת המבצע) הכי פעיל - 19 התרעות</p>
+        <p>• שעות הצהריים (12-18) עם הכי הרבה התרעות - 35%</p>
+        <p>• שעה 14:00 היא שעת השיא - 9 התרעות</p>
+        <p>• יש התרעות בכל שעות היממה - גם לילה!</p>
+      </div>
+    </div>
+  </div>`;
+}
+function initCharts() {
+  if (chartsInit) return;
+  chartsInit = true;
+  const defOpts = (title) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, title: { display: false } },
+    scales: { x: { ticks: { color:'#9ca3af', font:{size:9} }, grid:{color:'#ffffff0a'} },
+               y: { ticks: { color:'#9ca3af', font:{size:9} }, grid:{color:'#ffffff0a'}, beginAtZero:true } }
+  });
+
+  // Bar chart per day
+  const dayCtx = document.getElementById('chartDay');
+  if (dayCtx) {
+    new Chart(dayCtx, {
+      type:'bar',
+      data:{
+        labels: alertsByDay.labels,
+        datasets:[{
+          data: alertsByDay.data,
+          backgroundColor: alertsByDay.data.map(v => v===19 ? '#f97316' : v>=6 ? '#fb923c99' : '#f9731644'),
+          borderColor: '#f97316',
+          borderWidth: 1,
+          borderRadius: 3,
+        }]
+      },
+      options: { ...defOpts(), plugins:{ legend:{display:false} } }
+    });
+  }
+
+  // Donut shift
+  const shiftCtx = document.getElementById('chartShift');
+  if (shiftCtx) {
+    new Chart(shiftCtx, {
+      type:'doughnut',
+      data:{
+        labels: alertsByShift.labels,
+        datasets:[{ data: alertsByShift.data,
+          backgroundColor:['#f97316','#fb923c','#fbbf24','#1e40af'],
+          borderColor:'#0d0906', borderWidth:2 }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:true, position:'bottom',
+          labels:{ color:'#9ca3af', font:{size:10}, boxWidth:12, padding:8 } } } }
+    });
+  }
+
+  // Bar chart per hour
+  const hourCtx = document.getElementById('chartHour');
+  if (hourCtx) {
+    new Chart(hourCtx, {
+      type:'bar',
+      data:{
+        labels: alertsByHour.labels,
+        datasets:[{ data: alertsByHour.data,
+          backgroundColor: alertsByHour.data.map(v=> v===9?'#f97316': v>=6?'#fb923c99':'#f9731644'),
+          borderColor:'#f97316', borderWidth:1, borderRadius:2 }]
+      },
+      options: { ...defOpts() }
+    });
+  }
+}
+
+// ─── SERIAL ──────────────────────────────────────────────────
+function renderSerial() {
+  return `
+  <div class="space-y-5" style="color:#d1d5db;">
+    <p class="text-base leading-relaxed">כשאנחנו מקלידים <span class="ltr font-mono font-bold" style="color:#fb923c;">22/03/2026</span> בתא, Excel לא שומר את הטקסט - הוא שומר <strong class="text-white">מספר שלם</strong>.</p>
+
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <div class="flex items-start gap-3">
+        <i data-lucide="info" style="width:18px;height:18px;color:#fb923c;flex-shrink:0;margin-top:2px;"></i>
+        <div>
+          <h3 class="font-bold text-white text-sm mb-1">הכלל הבסיסי</h3>
+          <p class="text-sm" style="color:#d1d5db;">התאריך <span class="ltr font-mono" style="color:#fb923c;">1/1/1900</span> = <span class="font-mono font-bold text-white">1</span>. כל יום שחולף מוסיף 1. לכן <span class="ltr font-mono" style="color:#fb923c;">22/3/2026</span> = <span class="font-mono font-bold text-white">46,102</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Why 1/1/1900 -->
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3 flex items-center gap-2">
+        <i data-lucide="help-circle" style="width:16px;height:16px;color:#fb923c;"></i>
+        למה דווקא 1/1/1900?
+      </h3>
+      <div class="space-y-3 text-sm" style="color:#d1d5db;">
+        <p>לפני אקסל הייתה תוכנה בשם <strong class="text-white">Lotus 1-2-3</strong> - תוכנת הגיליונות האלקטרוניים הנפוצה ביותר בשנות ה-80. כשמיקרוסופט יצרו את אקסל, הם בחרו בדיוק באותה נקודת התחלה - <span class="ltr font-mono" style="color:#fb923c;">1/1/1900</span> - כדי שקבצים יעברו בין התוכנות בלי בעיות.</p>
+        <div class="rounded-lg p-3 flex items-start gap-2" style="background:#f9731611;border:1px solid #f9731633;">
+          <i data-lucide="bug" style="width:15px;height:15px;color:#fb923c;flex-shrink:0;margin-top:2px;"></i>
+          <div>
+            <p class="font-bold text-white mb-1">הבאג המפורסם של 1900</p>
+            <p style="color:#fed7aa;">בשנת 1900 <strong>אין 29 בפברואר</strong> - רק שנים המתחלקות ב-400 מקבלות 29 ימים בפברואר, ו-1900 לא מתחלקת ב-400. אבל Lotus טעתה וחשבה שכן - ואקסל שמרה על הטעות בכוונה! לכן אקסל "ממציא" תאריך שלא קיים: <span class="ltr font-mono font-bold" style="color:#fb923c;">29/2/1900</span> = מספר סידורי 60.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-xs text-center">
+          ${[['1','1/1/1900','נקודת ההתחלה'],['60','29/2/1900','❌ לא קיים!'],['46,102','22/3/2026','היום']].map(([n,d,l])=>`
+          <div class="rounded-lg p-2" style="background:#150e07;border:1px solid #2a1810;">
+            <div class="ltr font-mono font-bold text-base mb-0.5" style="color:#fb923c;">${n}</div>
+            <div class="ltr font-mono text-xs mb-0.5 text-white">${d}</div>
+            <div style="color:#6b7280;">${l}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive converter -->
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="calculator" style="width:16px;height:16px;color:#fb923c;"></i>
+        ממיר תאריך ← מספר סידורי
+      </h3>
+      <div class="flex flex-wrap items-end gap-3 mb-4">
+        <div>
+          <label class="block text-xs mb-1 font-medium" style="color:#fdba74;">הכנס תאריך:</label>
+          <input type="date" id="date-input" value="2026-03-22"
+            class="rounded-lg px-3 py-2 text-sm font-mono"
+            style="background:#1c0f07;border:1px solid #431407;color:#fff;">
+        </div>
+        <button onclick="convertDate()" class="px-4 py-2 rounded-lg text-sm font-medium text-white" style="background:#f97316;">
+          <span class="flex items-center gap-1"><i data-lucide="arrow-left" style="width:14px;height:14px;"></i> המר</span>
+        </button>
+      </div>
+      <div id="serial-result" class="rounded-lg p-4 text-center" style="background:#150e07;border:1px dashed #431407;">
+        <span class="text-xs block mb-1" style="color:#fdba74;">המספר הסידורי:</span>
+        <span class="number-reveal" style="color:#fb923c;">46,102</span>
+        <span class="text-xs block mt-1" style="color:#6b7280;">ימים מאז 1/1/1900</span>
+      </div>
+    </div>
+
+    <!-- Why it matters -->
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3">למה זה חשוב לנתוני האזעקות?</h3>
+      <div class="overflow-x-auto">
+        <div class="excel-grid" style="grid-template-columns:50px 1fr 1fr 1fr;min-width:400px;">
+          <div class="excel-cell excel-header"></div>
+          <div class="excel-cell excel-header">A – תאריך</div>
+          <div class="excel-cell excel-header">B – תאריך</div>
+          <div class="excel-cell excel-header">C – הפרש ימים</div>
+          <div class="excel-cell excel-header">1</div>
+          <div class="excel-cell excel-data" style="color:#1565c0;">21/03/2026</div>
+          <div class="excel-cell excel-data" style="color:#1565c0;">22/03/2026</div>
+          <div class="excel-cell excel-data font-bold" style="color:#1a7431;">1</div>
+        </div>
+      </div>
+      <div class="formula-box rounded-lg p-3 mt-3 text-center">
+        <span class="text-xs" style="color:#fdba74;">הנוסחה בתא C1:</span>
+        <span class="ltr font-mono font-bold text-sm text-white block mt-1">=B1-A1</span>
+      </div>
+    </div>
+
+    <!-- Decimal time -->
+    <div class="rounded-xl p-5" style="background:#0d0906;border:1px solid #2a1810;">
+      <h3 class="font-bold text-white text-sm mb-3">ושעות? → שברים עשרוניים</h3>
+      <p class="text-sm mb-3" style="color:#9ca3af;">יום שלם = 1, לכן כל שעה שווה <span class="ltr font-mono" style="color:#fb923c;">1/24</span> מהיום:</p>
+      <div class="grid grid-cols-4 gap-2">
+        ${[['12:00','0.5','חצי יום'],['06:00','0.25','רבע יום'],['18:00','0.75','¾ יום'],['03:00','0.125','⅛ יום']].map(([t,d,l])=>`
+        <div class="rounded-lg p-3 text-center" style="background:#150e07;border:1px solid #2a1810;">
+          <div class="ltr font-mono text-base font-bold text-white">${t}</div>
+          <div class="ltr font-mono text-sm font-bold mt-1" style="color:#fb923c;">${d}</div>
+          <div class="text-xs mt-1" style="color:#6b7280;">${l}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+function convertDate() {
+  const input = document.getElementById('date-input');
+  if (!input.value) return;
+  const date = new Date(input.value);
+  const epoch = new Date(1899,11,30);
+  const diff = Math.floor((date-epoch)/(1000*60*60*24));
+  document.getElementById('serial-result').innerHTML = `
+    <span class="text-xs block mb-1" style="color:#fdba74;">המספר הסידורי:</span>
+    <span class="number-reveal" style="color:#fb923c;">${diff.toLocaleString()}</span>
+    <span class="text-xs block mt-1" style="color:#6b7280;">${diff.toLocaleString()} ימים מאז 1/1/1900</span>`;
+}
+
+// ─── FUNCTIONS ───────────────────────────────────────────────
+function renderFunctions() {
+  const funcs = [
+    { name:'HOUR()', cat:'חילוץ', desc:'מחלץ את השעה (0–23) מתאריך ושעה', example:'=HOUR(H2)', result:'16', context:'מהאזעקה ב-16:49:15 נקבל 16' },
+    { name:'TEXT()', cat:'עיצוב', desc:'ממיר תאריך לטקסט בפורמט שנבחר', example:'=TEXT(H2,"dddd")', result:'"יום חמישי"', context:'ה-TEXT נותן לנו את שם היום' },
+    { name:'WEEKDAY()', cat:'חילוץ', desc:'מחזיר מספר היום בשבוע (1=ראשון)', example:'=WEEKDAY(D2,2)', result:'4', context:'חמישי = יום 4 בשבוע (ספירה ישראלית)' },
+    { name:'חישוב משך', cat:'חשבון', desc:'ממיר שניות לדקות על ידי חלוקה', example:'=G2/60', result:'2.8', context:'168 שניות ÷ 60 = 2.8 דקות' },
+  ];
+  return `
+  <div class="space-y-3" style="color:#d1d5db;">
+    <p class="text-base leading-relaxed mb-4">לחצו על כל פונקציה כדי לראות דוגמה מנתוני האזעקות שלנו:</p>
+    ${funcs.map((f,i)=>{
+      const catColors = {חילוץ:'#3b82f6',עיצוב:'#a855f7',לוגיקה:'#f97316',חשבון:'#22c55e'};
+      return `
+      <div class="rounded-xl overflow-hidden" style="background:#0d0906;border:1px solid #2a1810;">
+        <button onclick="toggleFunc(${i})" class="w-full flex items-center justify-between p-3 text-right transition-colors" style="hover:background:#150e07;">
+          <i data-lucide="chevron-down" style="width:16px;height:16px;color:#fb923c;" id="chev-${i}"></i>
+          <div class="flex items-center gap-3">
+            <span class="badge" style="background:${catColors[f.cat]||'#6b7280'}22;color:${catColors[f.cat]||'#9ca3af'};">${f.cat}</span>
+            ${/[\u0590-\u05FF]/.test(f.name) ? `<span class="font-bold text-sm" style="color:#fb923c;">${f.name}</span>` : `<span class="ltr font-mono text-sm font-bold" style="color:#fb923c;">${f.name}</span>`}
+          </div>
+        </button>
+        <div id="fd-${i}" class="hidden px-4 pb-4 pt-1">
+          <p class="text-sm mb-3" style="color:#9ca3af;">${f.desc}</p>
+          <div class="formula-box rounded-lg p-3 mb-2">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="text-center">
+                <div class="text-xs mb-1" style="color:#fdba74;">נוסחה</div>
+                <span class="ltr font-mono text-sm font-bold text-white">${f.example}</span>
+              </div>
+              <i data-lucide="arrow-left" style="width:14px;height:14px;color:#f97316;"></i>
+              <div class="text-center">
+                <div class="text-xs mb-1" style="color:#fdba74;">תוצאה</div>
+                ${/[\u0590-\u05FF]/.test(f.result) ? `<span class="font-bold text-sm" style="color:#4ade80;">${f.result}</span>` : `<span class="ltr font-mono text-sm font-bold" style="color:#4ade80;">${f.result}</span>`}
+              </div>
+            </div>
+          </div>
+          <p class="text-xs rounded-lg p-2" style="background:#150e07;color:#9ca3af;border:1px solid #2a1810;">💡 ${f.context}</p>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function toggleFunc(i) {
+  const d = document.getElementById(`fd-${i}`);
+  const c = document.getElementById(`chev-${i}`);
+  if (d.classList.contains('hidden')) { d.classList.remove('hidden'); c.style.transform='rotate(180deg)'; }
+  else { d.classList.add('hidden'); c.style.transform='rotate(0)'; }
+}
+
+// ─── PRACTICE ────────────────────────────────────────────────
+const exercises = [
+  { id:'e1', q:'מה הפונקציה שמחלצת שעה מהעמודה תאריך_ושעה_התחלה?', ans:'=HOUR(H2)', hint:'שמה של הפונקציה הוא HOUR, הטיעון הוא תא H2' },
+  { id:'e2', q:'אזעקה ב-03:21 (מרגליות, הלילה). מה תחזיר הפונקציה HOUR?', ans:'3', hint:'HOUR מחזיר רק את מספר השעה - 3 (בלילה)' },
+  { id:'e3', q:'איך תכתבו נוסחה שממיירת 168 שניות (תא G2) לדקות?', ans:'=G2/60', hint:'דקה = 60 שניות, אז צריך לחלק' },
+  { id:'e4', q:'האזעקה ב-16:49. מה תחזיר הנוסחה: =IF(HOUR(H2)>=6,"יום","לילה")?', ans:'יום', hint:'16 >= 6 → התנאי נכון → "יום"' },
+];
+function renderPractice() {
+  return `
+  <div class="space-y-4" style="color:#d1d5db;">
+    <p class="text-base leading-relaxed">4 שאלות על נתוני האזעקות שלנו. הקלידו תשובה ולחצו בדוק:</p>
+    ${exercises.map((ex,i)=>`
+    <div class="rounded-xl p-4" style="background:#0d0906;border:1px solid #2a1810;" id="prac-${ex.id}">
+      <div class="flex items-start gap-3 mb-3">
+        <span class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background:#f97316;">${i+1}</span>
+        <p class="text-sm font-medium text-white">${ex.q}</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mr-10">
+        <input type="text" id="ans-${ex.id}" placeholder="הקלידו תשובה..."
+          class="rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px] font-mono"
+          style="background:#150e07;border:1px solid #431407;color:#fff;"
+          onkeydown="if(event.key==='Enter')checkEx('${ex.id}')">
+        <button onclick="checkEx('${ex.id}')" class="px-3 py-2 rounded-lg text-xs font-medium text-white" style="background:#f97316;">בדוק</button>
+        <button onclick="showHint('${ex.id}')" class="px-3 py-2 rounded-lg text-xs font-medium" style="background:#1c0f07;color:#fdba74;border:1px solid #431407;">💡 רמז</button>
+      </div>
+      <div id="fb-${ex.id}" class="mt-2 mr-10"></div>
+    </div>`).join('')}
+  </div>`;
+}
+function checkEx(id) {
+  const ex = exercises.find(e=>e.id===id);
+  const val = document.getElementById(`ans-${id}`).value.trim().toLowerCase().replace(/\s/g,'');
+  const correct = ex.ans.toLowerCase().replace(/\s/g,'');
+  const fb = document.getElementById(`fb-${id}`);
+  if (val===correct) {
+    fb.innerHTML = `<div class="practice-feedback rounded-lg p-2 flex items-center gap-2" style="background:#052e16;border:1px solid #22c55e44;"><i data-lucide="check-circle" style="width:16px;height:16px;color:#4ade80;"></i><span class="text-sm" style="color:#4ade80;">נכון! 🎉</span></div>`;
+  } else {
+    const ansDisplay = /[\u0590-\u05FF]/.test(ex.ans) ? `<span class="font-bold text-white">${ex.ans}</span>` : `<span class="ltr font-mono font-bold text-white">${ex.ans}</span>`;
+    fb.innerHTML = `<div class="practice-feedback rounded-lg p-2 flex items-center gap-2" style="background:#1f0707;border:1px solid #ef444444;"><i data-lucide="x-circle" style="width:16px;height:16px;color:#ef4444;"></i><span class="text-sm" style="color:#fca5a5;">לא בדיוק. התשובה: ${ansDisplay}</span></div>`;
+  }
+  lucide.createIcons();
+}
+function showHint(id) {
+  const ex = exercises.find(e=>e.id===id);
+  const fb = document.getElementById(`fb-${id}`);
+  fb.innerHTML = `<div class="practice-feedback rounded-lg p-2 flex items-center gap-2" style="background:#1c1200;border:1px solid #eab30844;"><i data-lucide="lightbulb" style="width:16px;height:16px;color:#eab308;"></i><span class="text-sm" style="color:#fde68a;">${ex.hint}</span></div>`;
+  lucide.createIcons();
+}
+
+// ─── QUIZ ────────────────────────────────────────────────────
+const questions = [
+  { id:'q1', q:'האזעקה הגדולה הייתה ב-22/03/2026 (11:14). מה המספר הסידורי של התאריך הזה?', opts:['44,927','46,102','1','365'], correct:1 },
+  { id:'q2', q:'השעה 18:00 כשבר עשרוני שווה ל...', opts:['0.18','0.75','18','0.5'], correct:1 },
+  { id:'q3', q:'מה מחזירה הנוסחה =HOUR("03:44:28")?', opts:['3','44','28','03:44'], correct:0 },
+  { id:'q4', q:'באיזו נוסחה נמיר 168 שניות לדקות?', opts:['=G2*60','=G2/60','=MINUTES(G2)','=G2/3600'], correct:1 },
+  { id:'q5', q:'הנוסחה =TEXT(H2,"dddd") תחזיר:', opts:['מספר הימים','שם היום בשבוע','שעת האזעקה','חודש ושנה'], correct:1 },
+];
+function renderQuiz() {
+  const allDone = questions.every(q=>quizAnswers[q.id]!==undefined);
+  return `
+  <div class="space-y-4" style="color:#d1d5db;">
+    <p class="text-base leading-relaxed">5 שאלות. בחרו את התשובה הנכונה:</p>
+    ${questions.map((q,qi)=>`
+    <div class="rounded-xl p-4" style="background:#0d0906;border:1px solid #2a1810;">
+      <div class="flex items-start gap-3 mb-3">
+        <span class="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background:#f97316;">${qi+1}</span>
+        <p class="text-sm font-medium text-white">${q.q}</p>
+      </div>
+      <div class="space-y-2 mr-10">
+        ${q.opts.map((opt,oi)=>{
+          const answered = quizAnswers[q.id]!==undefined;
+          const selected = quizAnswers[q.id]===oi;
+          const isRight = oi===q.correct;
+          let cls = '';
+          if (answered && selected && isRight) cls='correct';
+          else if (answered && selected && !isRight) cls='wrong';
+          else if (answered && isRight) cls='correct';
+          return `<button onclick="answerQ('${q.id}',${oi})" class="quiz-option w-full text-right rounded-lg p-3 text-sm flex items-center gap-2 ${cls}" style="background:#150e07;border:1px solid #2a1810;color:#d1d5db;" ${answered?'disabled':''}>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background:#1c0f07;color:#fdba74;">${String.fromCharCode(1488+oi)}</span>
+            ${/[\u0590-\u05FF]/.test(opt) ? `<span>${opt}</span>` : `<span class="ltr font-mono">${opt}</span>`}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`).join('')}
+    ${allDone ? renderScore() : ''}
+  </div>`;
+}
+function answerQ(qid, oi) {
+  if (quizAnswers[qid]!==undefined) return;
+  quizAnswers[qid] = oi;
+  renderContent();
+}
+function renderScore() {
+  const correct = questions.filter(q=>quizAnswers[q.id]===q.correct).length;
+  const total = questions.length;
+  const pct = Math.round((correct/total)*100);
+  const emoji = pct>=80 ? '🏆' : pct>=60 ? '👍' : '💪';
+  const msg = pct>=80 ? 'מצוין! שליטה מלאה בחומר!' : pct>=60 ? 'כמעט! עוד קצת תרגול' : 'המשיכו לתרגל, אתם בדרך!';
+  if (pct===100) launchConfetti();
+  return `
+  <div class="rounded-xl p-6 text-center mt-2" style="background:linear-gradient(135deg,#1c0f07,#0d0906);border:2px solid #f97316;">
+    <div class="text-4xl mb-2">${emoji}</div>
+    <div class="text-3xl font-extrabold text-white mb-1">${correct}/${total}</div>
+    <div class="text-sm mb-3" style="color:#fdba74;">${msg}</div>
+    <div class="w-full max-w-xs mx-auto h-3 rounded-full overflow-hidden" style="background:#1c0f07;">
+      <div class="h-full rounded-full" style="width:${pct}%;background:linear-gradient(90deg,#f97316,#fb923c);"></div>
+    </div>
+    <button onclick="resetQuiz()" class="mt-4 px-5 py-2 rounded-lg text-sm font-medium text-white inline-flex items-center gap-2" style="background:#f97316;">
+      <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> נסו שוב
+    </button>
+  </div>`;
+}
+function resetQuiz() { quizAnswers = {}; renderContent(); }
+function launchConfetti() {
+  const colors = ['#f97316','#fb923c','#fbbf24','#4ade80','#60a5fa','#c084fc'];
+  for (let i=0;i<60;i++) {
+    setTimeout(()=>{
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random()*100+'vw';
+      el.style.top = '-20px';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.animationDuration = (1.2+Math.random()*0.8)+'s';
+      el.style.animationDelay = Math.random()*0.5+'s';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 2500);
+    }, i*30);
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+renderTabs();
+renderContent();
+updateProgress();
+</script>
+</body>
+</html>
