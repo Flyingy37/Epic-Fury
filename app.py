@@ -4,11 +4,11 @@ from pathlib import Path
 base_dir = Path(__file__).parent
 html_path = base_dir / "paste.txt"
 student_file = base_dir / "תרגול_DATEDIF_משופר_למשתתפים.xlsx"
-teacher_file = base_dir / "תרגול_DATEDIF_משופר_למרצה.xlsx"
-logo_file = base_dir / "logo.gif"
+logo_png = base_dir / "logo.png"
+logo_gif = base_dir / "logo.gif"
+logo_file = logo_png if logo_png.exists() else logo_gif
 
-page_icon_val = str(logo_file) if logo_file.exists() else None
-st.set_page_config(page_title="תרגול DATEDIF", page_icon=page_icon_val, layout="wide")
+st.set_page_config(page_title="תרגול DATEDIF", layout="wide")
 
 st.markdown("""
 <style>
@@ -60,7 +60,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**ניווט מהיר**")
     st.markdown("- מצגת והסבר")
-    st.markdown("- קבצי תרגול")
+    st.markdown("- קובץ תרגול")
     st.markdown("- Google Sheet")
 
 hero_col1, hero_col2 = st.columns([1, 3])
@@ -70,20 +70,17 @@ with hero_col1:
 with hero_col2:
     st.markdown('<div class="hero-box">', unsafe_allow_html=True)
     st.markdown('<div class="hero-title">תרגול DATEDIF - מגמת מידע ונתונים</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-sub">כל חומרי התרגול במקום אחד: מצגת ההסבר, קבצי העבודה להורדה וגישה ישירה אל גיליון Google Sheets.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-sub">כל חומרי התרגול במקום אחד: מצגת ההסבר, קובץ התרגול להורדה וגישה ישירה אל גיליון Google Sheets.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-info_col1, info_col2, info_col3 = st.columns(3)
-with info_col1:
-    st.metric("קבצי תרגול", "2")
-with info_col2:
-    st.metric("תצוגות באפליקציה", "3")
-with info_col3:
-    st.metric("גישה לגיליון", "ישירה")
+metric_col1, metric_col2, metric_col3 = st.columns(3)
+metric_col1.metric("קובצי תרגול", "1")
+metric_col2.metric("תוכן הסבר", "זמין")
+metric_col3.metric("Google Sheet", "מחובר")
 
 st.divider()
 
-tab1, tab2, tab3 = st.tabs(["מצגת והסבר", "קבצי תרגול", "הטמעת Google Sheet"])
+tab1, tab2, tab3 = st.tabs(["מצגת והסבר", "קובץ תרגול", "Google Sheet"])
 
 with tab1:
     st.subheader("מצגת והסבר")
@@ -95,38 +92,21 @@ with tab1:
         st.error("paste.txt לא נמצא")
 
 with tab2:
-    st.subheader("קבצי תרגול להורדה")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown('<div class="card-box">', unsafe_allow_html=True)
-        st.markdown("#### קובץ למשתתפים")
-        st.markdown("גרסה לעבודה עצמאית במהלך התרגול.")
-        if student_file.exists():
-            st.download_button(
-                label="הורדת קובץ משתתפים",
-                data=student_file.read_bytes(),
-                file_name=student_file.name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        else:
-            st.error("קובץ המשתתפים לא נמצא")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_b:
-        st.markdown('<div class="card-box">', unsafe_allow_html=True)
-        st.markdown("#### קובץ למרצה")
-        st.markdown("גרסה הכוללת את הפתרון והנחיה להוראה.")
-        if teacher_file.exists():
-            st.download_button(
-                label="הורדת קובץ מרצה",
-                data=teacher_file.read_bytes(),
-                file_name=teacher_file.name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        else:
-            st.error("קובץ המרצה לא נמצא")
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.subheader("קובץ תרגול ללא מרצה/מורה")
+    st.markdown('<div class="card-box">', unsafe_allow_html=True)
+    st.markdown("#### קובץ תרגול ללא מרצה/מורה")
+    st.markdown("גרסה לעבודה עצמאית במהלך התרגול.")
+    if student_file.exists():
+        st.download_button(
+            label="הורדת קובץ תרגול",
+            data=student_file.read_bytes(),
+            file_name=student_file.name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        st.error("קובץ התרגול לא נמצא")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with tab3:
     st.subheader("Google Sheet")
