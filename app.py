@@ -92,9 +92,7 @@ with tab1:
         st.error("paste.txt לא נמצא")
 
 with tab2:
-    st.subheader("קובץ תרגול ללא מרצה/מורה")
     st.markdown('<div class="card-box">', unsafe_allow_html=True)
-    st.markdown("#### קובץ תרגול ללא מרצה/מורה")
     st.markdown("גרסה לעבודה עצמאית במהלך התרגול.")
     if student_file.exists():
         st.download_button(
@@ -103,7 +101,6 @@ with tab2:
             file_name=student_file.name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
-        )
     else:
         st.error("קובץ התרגול לא נמצא")
     st.markdown('</div>', unsafe_allow_html=True)
